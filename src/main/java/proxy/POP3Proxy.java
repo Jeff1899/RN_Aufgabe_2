@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
@@ -32,24 +33,29 @@ import javax.mail.Store;
  */
 public class POP3Proxy {
 
-	private static final String USER_ACCOUNTS = "C:\\Users\\Biraj\\workspace\\RN_Aufgabe_2\\src\\main\\resources\\UserAccounts.txt";
+//	private static final String USER_ACCOUNTS = "C:\\Users\\Biraj\\workspace\\RN_Aufgabe_2\\src\\main\\resources\\UserAccounts.txt";
+	private static final String USER_ACCOUNTS = "../RNP_Aufgabe2/src/main/resources/UserAccounts.txt";
 	private int _port;
+	private String username;
+	private String password;
 	private ArrayList<UserAccount> userAccounts;
 	private ArrayList<Message> messages;
 	public static Map<UserAccount, ArrayList<Message>> userMessages = new HashMap<UserAccount, ArrayList<Message>>();
 
 	public POP3Proxy(String[] args) {
-		if (args.length != 1) {
+		if (args.length != 3) {
 			System.out.println("ERROR");
 		}
 
 		_port = Integer.parseInt(args[0]);
+		username = args[1];
+		password = args[2];
 		userAccounts = UserAccount.createUserAccounts(new File(USER_ACCOUNTS));
 
-		checkTime();
+//		checkTime();
 		ServerSocket server = null;
 		try {
-			server = new ServerSocket(1050);
+			server = new ServerSocket(3141);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -74,6 +80,7 @@ public class POP3Proxy {
 		private Socket socket;
 		private String currentState = "AUTH";
 		BufferedWriter outtoThunderbird;
+		PrintWriter out;
 		BufferedReader in;
 
 		POP3ServerThread(Socket socket) {
@@ -83,18 +90,23 @@ public class POP3Proxy {
 		@Override
 		public void run() {
 			try {
-				outtoThunderbird = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-				outtoThunderbird.write("+OK POP3 server ready\n\r");
-				in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
-				while (serving) {
-					// authentication state
-					if (currentState.equals("AUTH")) {
-						authenticate();
-
-					} // Transaction State
-					else if (currentState.equals("TRANS")) {
-						transaction();
-					}
+				outtoThunderbird = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(),StandardCharsets.UTF_8));
+				outtoThunderbird.write("+OK server is ready");
+				outtoThunderbird.newLine();
+				outtoThunderbird.flush();
+				
+				
+				in = new BufferedReader(
+						new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+			
+				while(true){
+					
+					if (currentState == "AUTH") {
+                        authenticate();
+                    } //Transaction State
+                    else if (currentState == "TRANS") {
+                        transaction();
+                    }
 				}
 
 			} catch (IOException e) {
@@ -112,35 +124,56 @@ public class POP3Proxy {
 			String line = in.readLine();
 			System.out.println(line);
 			if (line.startsWith("CAPA") || line.startsWith("AUTH")) {
-				outtoThunderbird.write("-ERR AUTH CAPA not supported");
+				outtoThunderbird.write("-ERR CAPA ist shit");
+//				outtoThunderbird.write("+OK list follows\n\r");
+				outtoThunderbird.newLine();
+				outtoThunderbird.flush();
 			} else if (line.startsWith("USER ")) {
+				
 				// check if there is user with the name
-				UserAccount user = null;
+				String user = null;
 				user = checkUser(line.substring(5));
-				if (user != null) {
-					outtoThunderbird.write("Give Password");
+				if (user.equals(username)) {
+					System.out.println(user);
+					outtoThunderbird.write("+OK Please enter password");
+					outtoThunderbird.newLine();
+					outtoThunderbird.flush();
 					line = in.readLine();
-					if (checkPassword(user, line.substring(5))) {
-						outtoThunderbird.write("Connection sucessful");
+					System.out.println(line);
+//					if (checkPassword(user, line.substring(5))) {
+					if(line.substring(5).equals(password)){
+						outtoThunderbird.write("+OK mailbox locked and ready");
+						outtoThunderbird.newLine();
+						outtoThunderbird.flush();
 						currentState = "TRANS";
 					} else {
 						outtoThunderbird.write("-ERR Wrong Password");
+						outtoThunderbird.newLine();
+						outtoThunderbird.flush();
 					}
 				} else if (line.startsWith("QUIT ")) {
 					outtoThunderbird.write(" +OK POP3 server signing off");
+					outtoThunderbird.newLine();
+					outtoThunderbird.flush();
 				} else {
 					outtoThunderbird.write("-ERR Wrong Username");
+					outtoThunderbird.newLine();
+					outtoThunderbird.flush();
 				}
 			}
 		}
 
-		private UserAccount checkUser(String name) {
-			for (UserAccount user : userAccounts) {
-				if (user.get_name().equals(name)) {
-					return user;
-				}
-			}
-			return null;
+//		private UserAccount checkUser(String name) {
+//			for (UserAccount user : userAccounts) {
+//				if (user.get_name().equals(name)) {
+//					return user;
+//				}
+//			}
+//			return null;
+//		}
+		private String checkUser(String name) {
+			
+			return name;
 		}
 
 		private boolean checkPassword(UserAccount user, String password) {
@@ -155,6 +188,8 @@ public class POP3Proxy {
 			if (line.startsWith("STAT ")) { // OK + nr of msg in maildrop + " "
 											// + size of mail drop in octets
 				outtoThunderbird.write("+OK " + messages.size() + "size of maildrop in octals");
+				outtoThunderbird.newLine();
+				outtoThunderbird.flush();
 			} else if (line.startsWith("LIST ")) { // param optional
 				// with param //ok + mail with param or error if the msg nr is
 				// not there
@@ -166,8 +201,12 @@ public class POP3Proxy {
 			} else if (line.startsWith("DELE ")) { // param msg nr required
 				handleDelete(line);
 				outtoThunderbird.write("Ok del");
+				outtoThunderbird.newLine();
+				outtoThunderbird.flush();
 			} else if (line.startsWith("NOOP ")) {// The POP3 server does
 				outtoThunderbird.write("+OK"); // nothing, it merely
+				outtoThunderbird.newLine();
+				outtoThunderbird.flush();
 												// replies with a positive
 												// response
 
@@ -185,10 +224,14 @@ public class POP3Proxy {
 				// multi line, +OK as first line and each line with message nr +
 				// " " + unique id from message
 				outtoThunderbird.write("handle UIDl");
+				outtoThunderbird.newLine();
+				outtoThunderbird.flush();
 			} else if (line.startsWith("QUIT ")) {
 				currentState = "UPDATE"; // in translation state Quit command
 											// will change the state to UPDATE
 				outtoThunderbird.write("+OK Server signing off");
+				outtoThunderbird.newLine();
+				outtoThunderbird.flush();
 				serving = false;
 			}
 
