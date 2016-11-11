@@ -5,6 +5,8 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+
 import java.io.OutputStreamWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -32,7 +34,8 @@ import javax.mail.Store;
  */
 public class POP3Proxy {
 
-	private static final String USER_ACCOUNTS = "C:\\Users\\Biraj\\workspace\\RN_Aufgabe_2\\src\\main\\resources\\UserAccounts.txt";
+	private static final String USER_ACCOUNTS = "../RNP_Aufgabe2/src/main/resources/UserAccounts.txt";
+//	private static final String USER_ACCOUNTS = "C:\\Users\\Biraj\\workspace\\RN_Aufgabe_2\\src\\main\\resources\\UserAccounts.txt";
 	private int _port;
 	private ArrayList<UserAccount> userAccounts;
 	private ArrayList<Message> messages;
@@ -46,10 +49,11 @@ public class POP3Proxy {
 		_port = Integer.parseInt(args[0]);
 		userAccounts = UserAccount.createUserAccounts(new File(USER_ACCOUNTS));
 
-		checkTime();
+//		checkTime();
+
 		ServerSocket server = null;
 		try {
-			server = new ServerSocket(1050);
+			server = new ServerSocket(_port);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -60,8 +64,9 @@ public class POP3Proxy {
 			try {
 				System.out.println("Wait for Thunderbird");
 				Socket socket = server.accept();
+				
 				new POP3ServerThread(socket).start();
-				System.out.println("connect");
+
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -72,7 +77,7 @@ public class POP3Proxy {
 	class POP3ServerThread extends Thread {
 
 		private Socket socket;
-		private String currentState = "AUTH";
+		private String currentState;
 		BufferedWriter outtoThunderbird;
 		BufferedReader in;
 
@@ -83,18 +88,28 @@ public class POP3Proxy {
 		@Override
 		public void run() {
 			try {
+				System.out.println("RUNS");
 				outtoThunderbird = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
 				outtoThunderbird.write("+OK POP3 server ready\n\r");
-				in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
-				while (true) {
-
-					if (currentState.equals("AUTH")) {
-						authenticate();
-
-					} // Transaction State
-					else if (currentState == "TRANS") {
-						transaction();
-					}
+//				outtoThunderbird.newLine();
+				outtoThunderbird.flush();
+				
+				in = new BufferedReader(
+						new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+			
+				String currentState = in.readLine();
+				while(true){
+					
+					if (currentState == "AUTH") {
+                        authenticate();
+                    } //Transaction State
+                    else if (currentState == "TRANS") {
+                        transaction();
+                    }
+                    else{
+                    	System.out.println(currentState);
+                    	transaction();
+                    }
 				}
 
 			} catch (IOException e) {
