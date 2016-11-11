@@ -5,8 +5,6 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
-
 import java.io.OutputStreamWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -34,8 +32,7 @@ import javax.mail.Store;
  */
 public class POP3Proxy {
 
-	private static final String USER_ACCOUNTS = "../RNP_Aufgabe2/src/main/resources/UserAccounts.txt";
-//	private static final String USER_ACCOUNTS = "C:\\Users\\Biraj\\workspace\\RN_Aufgabe_2\\src\\main\\resources\\UserAccounts.txt";
+	private static final String USER_ACCOUNTS = "C:\\Users\\Biraj\\workspace\\RN_Aufgabe_2\\src\\main\\resources\\UserAccounts.txt";
 	private int _port;
 	private ArrayList<UserAccount> userAccounts;
 	private ArrayList<Message> messages;
@@ -49,11 +46,10 @@ public class POP3Proxy {
 		_port = Integer.parseInt(args[0]);
 		userAccounts = UserAccount.createUserAccounts(new File(USER_ACCOUNTS));
 
-//		checkTime();
-
+		checkTime();
 		ServerSocket server = null;
 		try {
-			server = new ServerSocket(_port);
+			server = new ServerSocket(1050);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -64,9 +60,8 @@ public class POP3Proxy {
 			try {
 				System.out.println("Wait for Thunderbird");
 				Socket socket = server.accept();
-				
 				new POP3ServerThread(socket).start();
-
+				System.out.println("connect");
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -75,9 +70,9 @@ public class POP3Proxy {
 	}
 
 	class POP3ServerThread extends Thread {
-
+		private boolean serving = true;
 		private Socket socket;
-		private String currentState;
+		private String currentState = "AUTH";
 		BufferedWriter outtoThunderbird;
 		BufferedReader in;
 
@@ -88,28 +83,18 @@ public class POP3Proxy {
 		@Override
 		public void run() {
 			try {
-				System.out.println("RUNS");
 				outtoThunderbird = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
 				outtoThunderbird.write("+OK POP3 server ready\n\r");
-//				outtoThunderbird.newLine();
-				outtoThunderbird.flush();
-				
-				in = new BufferedReader(
-						new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
-			
-				String currentState = in.readLine();
-				while(true){
-					
-					if (currentState == "AUTH") {
-                        authenticate();
-                    } //Transaction State
-                    else if (currentState == "TRANS") {
-                        transaction();
-                    }
-                    else{
-                    	System.out.println(currentState);
-                    	transaction();
-                    }
+				in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+				while (serving) {
+					// authentication state
+					if (currentState.equals("AUTH")) {
+						authenticate();
+
+					} // Transaction State
+					else if (currentState.equals("TRANS")) {
+						transaction();
+					}
 				}
 
 			} catch (IOException e) {
@@ -130,43 +115,67 @@ public class POP3Proxy {
 				outtoThunderbird.write("-ERR AUTH CAPA not supported");
 			} else if (line.startsWith("USER ")) {
 				// check if there is user with the name
-				if (line.substring(5).equals(userAccounts.get(1).get_name())) {
+				UserAccount user = null;
+				user = checkUser(line.substring(5));
+				if (user != null) {
 					outtoThunderbird.write("Give Password");
 					line = in.readLine();
-					if (line.substring(5).equals(userAccounts.get(1).get_passwort())) {
+					if (checkPassword(user, line.substring(5))) {
 						outtoThunderbird.write("Connection sucessful");
 						currentState = "TRANS";
+					} else {
+						outtoThunderbird.write("-ERR Wrong Password");
 					}
 				} else if (line.startsWith("QUIT ")) {
 					outtoThunderbird.write(" +OK POP3 server signing off");
+				} else {
+					outtoThunderbird.write("-ERR Wrong Username");
 				}
 			}
 		}
 
+		private UserAccount checkUser(String name) {
+			for (UserAccount user : userAccounts) {
+				if (user.get_name().equals(name)) {
+					return user;
+				}
+			}
+			return null;
+		}
+
+		private boolean checkPassword(UserAccount user, String password) {
+			if (user.get_passwort().equals(password)) {
+				return true;
+			}
+			return false;
+		}
+
 		private void transaction() throws IOException, MessagingException {
 			String line = in.readLine();
-			if (line.startsWith("STAT ")) { //OK + nr of msg in maildrop + " " + size of mail drop in octets
-				outtoThunderbird.write("+OK " + messages.size());
-			} else if (line.startsWith("LIST ")) { // param optional 
-				//with param  //ok + mail with param or error if the msg nr is not there
-				//whithout param //ok + all mail 
-				outtoThunderbird.write("+OK List mail");
+			if (line.startsWith("STAT ")) { // OK + nr of msg in maildrop + " "
+											// + size of mail drop in octets
+				outtoThunderbird.write("+OK " + messages.size() + "size of maildrop in octals");
+			} else if (line.startsWith("LIST ")) { // param optional
+				// with param //ok + mail with param or error if the msg nr is
+				// not there
+				// whithout param //ok + all mail
+				handleList();
 			} else if (line.startsWith("RETR ")) { // RETR msg ->msg is num of
 													// message( param required)
-				outtoThunderbird.write("+OK ---octals");
-				outtoThunderbird.write(messages.get(Integer.parseInt(line.substring(6))).toString());
+				handleRetr(line);
 			} else if (line.startsWith("DELE ")) { // param msg nr required
-				messages.get(1).setFlag(Flag.DELETED, true);
+				handleDelete(line);
 				outtoThunderbird.write("Ok del");
 			} else if (line.startsWith("NOOP ")) {// The POP3 server does
-													// nothing, it merely
-													// replies with a positive
-													// response.
-				outtoThunderbird.write("+OK");
-			} else if (line.startsWith("RSET")) {  //no param
+				outtoThunderbird.write("+OK"); // nothing, it merely
+												// replies with a positive
+												// response
+
+			} else if (line.startsWith("RSET")) { // no param
 				// Unmark the message that are marked as deleted
-				outtoThunderbird.write("ok");
-			} else if (line.startsWith("UIDL")) { 
+				handleReset(line);
+			} else if (line.startsWith("UIDL")) {
+				handleUIDL(line);
 				// if with paramater(msg nr)
 				// if msg nr is there OK + message nr + " " + unique id from
 				// message
@@ -180,6 +189,74 @@ public class POP3Proxy {
 				currentState = "UPDATE"; // in translation state Quit command
 											// will change the state to UPDATE
 				outtoThunderbird.write("+OK Server signing off");
+				serving = false;
+			}
+
+		}
+
+		private void handleList() throws IOException {
+			if(messages.size() > 0){
+				for(Message message : messages){
+					outtoThunderbird.write(message.toString());
+				}
+			}else{
+				
+			}
+			outtoThunderbird.write("+OK List mail");
+
+		}
+
+		private void handleRetr(String line) throws IOException {
+			outtoThunderbird.write("+OK ---octals");
+			int messageNr = Integer.parseInt(line.substring(6));
+			if(messages.size() > messageNr){ 
+				outtoThunderbird.write(messages.get(messageNr).toString());
+			}else{
+				outtoThunderbird.write("-ERR no such message, only " + messages.size() + " messages in maildrop");
+			}
+		}
+
+		private void handleReset(String line) throws MessagingException, IOException {
+			for (Message message : messages) {
+				message.setFlag(Flag.DELETED, false);
+			}
+			outtoThunderbird.write("ok");
+		}
+
+		private void handleDelete(String line) throws IOException, MessagingException {
+			boolean contains = false;
+			for (Message message : messages) {
+				if (message.getMessageNumber() == Integer.parseInt(line.substring(5))) {
+					contains = true;
+					message.setFlag(Flag.DELETED, true);
+					outtoThunderbird.write("+Ok deleted");
+				}
+			}
+			if (contains == false) {
+				outtoThunderbird.write("-ERR only " + messages.size() + "are avialable");
+			}
+		}
+
+		private void handleUIDL(String line) throws IOException {
+			if (line.length() > 5) {
+				for (Message message : messages) {
+					if (message.getMessageNumber() == Integer.parseInt(line.substring(5))) {
+						outtoThunderbird.write("+Ok " + message.getMessageNumber() + " " + message.hashCode());
+					}
+				}
+				outtoThunderbird.write("-ERR no such message, only " + messages.size() + " messages in maildrop");
+
+			} else {
+				outtoThunderbird.write("+OK");
+				for (Message message : messages) {
+					outtoThunderbird.write(message.getMessageNumber() + " " + message.hashCode()); // unique
+																									// id
+																									// from
+																									// messsage
+																									// =>
+																									// hashcode
+																									// ?
+				}
 			}
 
 		}
@@ -214,6 +291,7 @@ public class POP3Proxy {
 
 			for (int i = 0; i < messages.length; i++) {
 				Message message = messages[i];
+				System.out.println(message.toString());
 				System.out.println("Message " + (i + 1));
 				System.out.println("Subject: " + message.getSubject());
 				System.out.println("From: " + message.getFrom()[0]);
