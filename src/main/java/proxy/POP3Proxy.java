@@ -15,6 +15,9 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import javax.mail.Flags.Flag;
 import javax.mail.Folder;
 import javax.mail.Message;
@@ -37,7 +40,7 @@ public class POP3Proxy {
 	private String username;
 	private String password;
 	private ArrayList<UserAccount> userAccounts;
-	private ArrayList<Message> messages;
+	private ArrayList<Message> messages = new ArrayList<>();
 	public static Map<UserAccount, ArrayList<Message>> userMessages = new HashMap<UserAccount, ArrayList<Message>>();
 
 	public POP3Proxy(String[] args) {
@@ -127,7 +130,7 @@ public class POP3Proxy {
 					System.out.println(line.length() + " so long");
 					handlePassword(line);
 				}
-			} else if (line.startsWith("QUIT ")) {
+			} else if (line.startsWith("QUIT")) {
 				handleQuit();
 			} else {
 				handleUnknownCommand();
@@ -171,10 +174,10 @@ public class POP3Proxy {
 		private synchronized void transaction() throws IOException, MessagingException {
 			// String line = read();
 			String line = reader.readLine();
-			if (line.startsWith("STAT ")) {
+			if (line.startsWith("STAT")) {
 				handleStat();
 			} else if (line.startsWith("LIST ")) {
-				handleList();
+				handleList(line);
 			} else if (line.startsWith("RETR ")) {
 				handleRetr(line);
 			} else if (line.startsWith("DELE ")) {
@@ -194,137 +197,163 @@ public class POP3Proxy {
 		/*
 		 * OK + nr of msg in maildrop + " " + // + size of mail drop in octets
 		 */
-		private synchronized void handleStat() {
-			write("+OK " + messages.size() + "size of maildrop in octals");
+		private synchronized void handleStat() throws MessagingException {
+			int size = 0;
+			if (messages.size() > 0) {
+				for (int i = 0; i > messages.size(); i++) {
+					size = size + messages.get(i).getSize();
+				}
+				write("+OK " + messages.size() + size + "size of maildrop in octals");
+			} else {
+				write("-ERR maildrop empty");
+			}
+
 		}
 
 		/*
 		 * param optional with param ok + mail with param or error if the msg nr
 		 * is not there without param ok + all mail
 		 */
-		private synchronized void handleList() throws IOException {
+		private synchronized void handleList(String line) throws IOException, MessagingException {
+			Pattern pattern = Pattern.compile(".* ([0-9]+)");
+			Matcher m = pattern.matcher(line);
 			if (messages.size() > 0) {
-				for (Message message : messages) {
-					write(message.toString());
+				if (m.matches()) {
+					int msgnr = Integer.parseInt(m.group(1));
+					if(msgnr < messages.size()){		
+						write("+OK" + msgnr + " " +  messages.get(msgnr).getSize());
+					} else {
+							write("-ERR message not found");
+					}
+				}
+				 else {
+					write("+OK List mail");
+					for (int i = 0; i< messages.size(); i++) {
+						write(i + " " + messages.get(i).getSize());
+					}
+					write(".");
 				}
 			} else {
-
+				write("-ERR maildrop empty");
 			}
-			write("+OK List mail");
 
 		}
 
 		/*
 		 * RETR msg ->msg is num of message( param required)
 		 */
-		private synchronized void handleRetr(String line) throws IOException {
-			write("+OK ---octals");
-			int messageNr = Integer.parseInt(line.substring(6));
-			if (messages.size() > messageNr) {
-				write(messages.get(messageNr).toString());
+		private synchronized void handleRetr(String line) throws IOException, MessagingException {
+			if (messages.size() > 0) {
+				int msgnr = Integer.parseInt(line.substring(5));
+				if(msgnr < messages.size()){
+					Message m = messages.get(msgnr);
+					write("+OK" + m.getSize() + "Octats");	
+					write(m.getDescription()); //Hier kommt ganze Mail
+					write("."); //Am ende mit . enden
+				}
 			} else {
-				write("-ERR no such message, only " + messages.size() + " messages in maildrop");
+				write("-ERR maildrop empty");
 			}
 		}
+	
 
-		/*
-		 * // param msg nr required
-		 */
-		private synchronized void handleDelete(String line) throws IOException, MessagingException {
-			boolean contains = false;
+	/*
+	 * // param msg nr required
+	 */
+	private synchronized void handleDelete(String line) throws IOException, MessagingException {
+		boolean contains = false;
+		for (Message message : messages) {
+			if (message.getMessageNumber() == Integer.parseInt(line.substring(5))) {
+				contains = true;
+				message.setFlag(Flag.DELETED, true);
+				write("+Ok deleted");
+			}
+		}
+		if (contains == false) {
+			write("-ERR only " + messages.size() + "are avialable");
+		}
+	}
+
+	/*
+	 * Just reply with positive response
+	 */
+	private synchronized void handleNoop() {
+		write("+OK");
+	}
+
+	/*
+	 * Unmark the message that are marked as deleted no param
+	 */
+	private synchronized void handleReset(String line) throws MessagingException, IOException {
+		for (Message message : messages) {
+			message.setFlag(Flag.DELETED, false);
+		}
+		write("+ok");
+	}
+
+	/*
+	 * if with paramater(msg nr) if msg nr is there OK + message nr + " " +
+	 * unique id from message if msg nr is not there -ERR no such message, only
+	 * 2 messages in maildrop without parameter multi line, +OK as first line
+	 * and each line with message nr + " " + unique id from message
+	 */
+
+	private synchronized void handleUIDL(String line) throws IOException {
+		if (line.length() > 5) {
 			for (Message message : messages) {
 				if (message.getMessageNumber() == Integer.parseInt(line.substring(5))) {
-					contains = true;
-					message.setFlag(Flag.DELETED, true);
-					write("+Ok deleted");
+					write("+Ok " + message.getMessageNumber() + " " + message.hashCode());
 				}
 			}
-			if (contains == false) {
-				write("-ERR only " + messages.size() + "are avialable");
-			}
-		}
+			write("-ERR no such message, only " + messages.size() + " messages in maildrop");
 
-		/*
-		 * Just reply with positive response
-		 */
-		private synchronized void handleNoop() {
+		} else {
 			write("+OK");
-		}
-
-		/*
-		 * Unmark the message that are marked as deleted no param
-		 */
-		private synchronized void handleReset(String line) throws MessagingException, IOException {
 			for (Message message : messages) {
-				message.setFlag(Flag.DELETED, false);
-			}
-			write("+ok");
-		}
-
-		/*
-		 * if with paramater(msg nr) if msg nr is there OK + message nr + " " +
-		 * unique id from message if msg nr is not there -ERR no such message,
-		 * only 2 messages in maildrop without parameter multi line, +OK as
-		 * first line and each line with message nr + " " + unique id from
-		 * message
-		 */
-
-		private synchronized void handleUIDL(String line) throws IOException {
-			if (line.length() > 5) {
-				for (Message message : messages) {
-					if (message.getMessageNumber() == Integer.parseInt(line.substring(5))) {
-						write("+Ok " + message.getMessageNumber() + " " + message.hashCode());
-					}
-				}
-				write("-ERR no such message, only " + messages.size() + " messages in maildrop");
-
-			} else {
-				write("+OK");
-				for (Message message : messages) {
-					write(message.getMessageNumber() + " " + message.hashCode());
-					// unique id from messsage =>hashcode ?
-				}
-			}
-
-		}
-
-		/*
-		 * in translation state Quit command will change the state to UPDATE
-		 * delete any marked message and quit
-		 */
-		private synchronized void handleQuitTrans() {
-			state = STATE.UPDATE;
-			serving = false;
-		}
-
-		/*
-		 * Read each char till a line ends
-		 */
-		private String read() {
-			int i;
-			StringBuilder sb = new StringBuilder("");
-			try {
-				sb = new StringBuilder();
-				while (0 <= (i = in.read()) && i != '\r' && i != '\n') {
-					sb.append((char) i);
-					System.out.println(sb.toString());
-				}
-
-			} catch (IOException e) {
-
-			}
-			System.out.println("end of read");
-			return sb.toString();
-		}
-
-		private void write(String line) {
-			line = line + "\r\n";
-			try {
-				out.write(line);
-				out.flush();
-			} catch (IOException e) {
+				write(message.getMessageNumber() + " " + message.hashCode());
+				// unique id from messsage =>hashcode ?
 			}
 		}
+	}
+	
+
+	/*
+	 * in translation state Quit command will change the state to UPDATE delete
+	 * any marked message and quit
+	 */
+	private synchronized void handleQuitTrans() {
+		state = STATE.UPDATE;
+		serving = false;
+	}
+
+	/*
+	 * Read each char till a line ends
+	 */
+	private String read() {
+		int i;
+		StringBuilder sb = new StringBuilder("");
+		try {
+			sb = new StringBuilder();
+			while (0 <= (i = in.read()) && i != '\r' && i != '\n') {
+				sb.append((char) i);
+				System.out.println(sb.toString());
+			}
+
+		} catch (IOException e) {
+
+		}
+		System.out.println("end of read");
+		return sb.toString();
+	}
+
+	private void write(String line) {
+		line = line + "\r\n";
+		try {
+			out.write(line);
+			out.flush();
+		} catch (IOException e) {
+		}
+	}
 
 	}
 
@@ -357,6 +386,7 @@ public class POP3Proxy {
 
 			for (int i = 0; i < messages.length; i++) {
 				Message message = messages[i];
+				System.out.println(message.getSize() + "in octats");
 				System.out.println(message.toString());
 				System.out.println("Message " + (i + 1));
 				System.out.println("Subject: " + message.getSubject());
@@ -389,7 +419,7 @@ public class POP3Proxy {
 			public void run() {
 
 				for (UserAccount user : userAccounts) {
-					// messages.addAll(receivingEmails(user));
+					messages.addAll(receivingEmails(user));
 					if (userMessages.containsKey(user)) {
 						userMessages.get(user).addAll(receivingEmails(user));
 						System.out.println(userMessages.get(user).size());
