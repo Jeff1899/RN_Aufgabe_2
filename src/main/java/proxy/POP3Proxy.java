@@ -33,9 +33,8 @@ import javax.mail.Store;
  */
 public class POP3Proxy {
 
-	private static final String USER_ACCOUNTS = "C:\\Users\\Biraj\\workspace\\RN_Aufgabe_2\\src\\main\\resources\\UserAccounts.txt";
-	// private static final String USER_ACCOUNTS =
-	// "../RNP_Aufgabe2/src/main/resources/UserAccounts.txt";
+//	private static final String USER_ACCOUNTS = "C:\\Users\\Biraj\\workspace\\RN_Aufgabe_2\\src\\main\\resources\\UserAccounts.txt";
+	 private static final String USER_ACCOUNTS = "../RNP_Aufgabe2/src/main/resources/UserAccounts.txt";
 	private int port;
 	private String username;
 	private String password;
@@ -63,10 +62,9 @@ public class POP3Proxy {
 
 		while (true) {
 			try {
-				System.out.println("Wait for Thunderbird");
+				System.out.println("POP3-Proxy");
 				Socket socket = server.accept();
 				new POP3ServerThread(socket).start();
-				System.out.println("connect");
 			} catch (IOException e) {
 				try {
 					server.close();
@@ -101,7 +99,7 @@ public class POP3Proxy {
 						authenticate();
 					} // Transaction State
 					else if (state == STATE.TRANS) {
-						System.out.println("In trans state");
+						System.out.println("TRANS");
 						transaction();
 					}
 				}
@@ -121,10 +119,8 @@ public class POP3Proxy {
 			if (line.startsWith("CAPA") || line.startsWith("AUTH")) {
 				handleCapa();
 			} else if (line.startsWith("USER ")) {
-				System.out.println("in User");
 				boolean userCorrect = handleUser(line);
 				if (userCorrect) {
-					// String line = read();
 					line = reader.readLine();
 					handlePassword(line);
 				}
@@ -136,14 +132,12 @@ public class POP3Proxy {
 		}
 
 		private void handleCapa() {
-			write("-ERR CAPA ist shit");
-			System.out.println("-ERR CAPA ist shit");
+			write("-ERR CAPA ");
 		}
 
 		private synchronized boolean handleUser(String line) {
 			if (line.substring(5).equals(username)) {
 				write("+OK Please enter password");
-				System.out.println("+OK Please enter password");
 				return true;
 			} else {
 				write("-ERR Wrong Username");
@@ -155,7 +149,6 @@ public class POP3Proxy {
 		private synchronized void handlePassword(String line) {
 			if (line.substring(5).equals(password)) {
 				write("+OK mailbox locked and ready");
-				System.out.println("+OK mailbox locked and ready");
 				state = STATE.TRANS;
 			} else {
 				write("-ERR Wrong Password");
@@ -172,9 +165,8 @@ public class POP3Proxy {
 		}
 
 		private synchronized void transaction() throws IOException, MessagingException {
-			// String line = read();
 			String line = reader.readLine();
-			System.out.println(line);
+			System.out.println("TRANSACTION : " + line);
 			if (line.startsWith("STAT")) {
 				handleStat();
 			} else if (line.startsWith("LIST")) {
@@ -201,11 +193,10 @@ public class POP3Proxy {
 		private synchronized void handleStat() throws MessagingException {
 			int size = 0;
 			if (messages.size() > 0) {
-				for (int i = 0; i > messages.size(); i++) {
+				for (int i = 0; i < messages.size(); i++) {
 					size = size + messages.get(i).getSize();
 				}
-				write("+OK " + messages.size() + size + "size of maildrop in octals");
-				System.out.println("+OK " + messages.size() + size + "size of maildrop in octals");
+				write("+OK " + messages.size() + " " + size);
 			} else {
 				write("-ERR maildrop empty");
 			}
@@ -228,14 +219,10 @@ public class POP3Proxy {
 						write("-ERR message not found");
 					}
 				} else {
-					System.out.println("i am here");
-					write("+OK List mail");
-					System.out.println("+OK List mail");
+					write("+OK " + messages.size() + " messages");
 					for (int i = 0; i < messages.size(); i++) {
-						write(i + " " + messages.get(i).getSize());
-						System.out.println(i + " " + messages.get(i).getSize());
+						write((i+1) + " " + messages.get(i).getSize());
 					}
-					System.out.println(".");
 					write(".");
 				}
 			} else {
@@ -250,10 +237,15 @@ public class POP3Proxy {
 		private synchronized void handleRetr(String line) throws IOException, MessagingException {
 			if (messages.size() > 0) {
 				int msgnr = Integer.parseInt(line.substring(5));
+				msgnr = msgnr - 1;
 				if (msgnr < messages.size()) {
 					Message m = messages.get(msgnr);
-					write("+OK" + m.getSize() + "Octats");
-					write(m.getDescription()); // Hier kommt ganze Mail
+
+					write("+OK " + m.getSize() + " Octats");
+					write("" + m.getFrom()[0]);
+					write("rnwise2016@gmail.com");
+					write(m.getSubject());
+					write(m.getContent().toString()); // Hier kommt ganze Mail
 					write("."); // Am ende mit . enden
 				}
 			} else {
@@ -316,12 +308,9 @@ public class POP3Proxy {
 					}
 				} else {
 					write("+OK List mail");
-					System.out.println("+OK List mail");
 					for (int i = 0; i < messages.size(); i++) {
-						write(i + " " + messages.get(i).getSize());
-						System.out.println(i + " " + messages.get(i).getReceivedDate());
+						write((i+1) + " " + messages.get(i).getMessageNumber());
 					}
-					System.out.println(".");
 					write(".");
 				}
 			} else {
@@ -360,6 +349,7 @@ public class POP3Proxy {
 		}
 
 		private void write(String line) {
+			System.err.println(line);
 			line = line + "\r\n";
 			try {
 				out.write(line);
