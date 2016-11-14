@@ -1,7 +1,6 @@
 package proxy;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -9,22 +8,16 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.mail.Flags.Flag;
-import javax.mail.Folder;
 import javax.mail.Message;
 import javax.mail.MessagingException;
-import javax.mail.NoSuchProviderException;
-import javax.mail.Session;
-import javax.mail.Store;
+
+import mailbox.Mailbox;
 
 /**
  * 
@@ -33,15 +26,15 @@ import javax.mail.Store;
  */
 public class POP3Proxy {
 
-//	private static final String USER_ACCOUNTS = "C:\\Users\\Biraj\\workspace\\RN_Aufgabe_2\\src\\main\\resources\\UserAccounts.txt";
-	 private static final String USER_ACCOUNTS = "../RNP_Aufgabe2/src/main/resources/UserAccounts.txt";
 	private int port;
 	private String username;
 	private String password;
-	private ArrayList<UserAccount> userAccounts;
 	private ArrayList<Message> messages = new ArrayList<>();
 	public static Map<UserAccount, ArrayList<Message>> userMessages = new HashMap<UserAccount, ArrayList<Message>>();
 	public int clientAnzahl = 0;
+	public boolean serving = true;
+	public Mailbox mailbox;
+
 	public POP3Proxy(String[] args) {
 		if (args.length != 3) {
 			System.out.println("ERROR");
@@ -50,9 +43,8 @@ public class POP3Proxy {
 		port = Integer.parseInt(args[0]);
 		username = args[1];
 		password = args[2];
-		userAccounts = UserAccount.createUserAccounts(new File(USER_ACCOUNTS));
-
-		checkTime();
+		mailbox = new Mailbox();
+	    mailbox.checkTime();
 		ServerSocket server = null;
 		try {
 			server = new ServerSocket(port);
@@ -60,13 +52,13 @@ public class POP3Proxy {
 			System.err.println("Connection failed");
 		}
 
-		while (true) {
+		while (serving) {
 			try {
 				System.out.println("POP3-Proxy");
-				if(clientAnzahl <= 3){
-				Socket socket = server.accept();
-				new POP3ServerThread(socket).start();
-				clientAnzahl++;
+				if (clientAnzahl <= 3) {
+					Socket socket = server.accept();
+					new POP3ServerThread(socket).start();
+					clientAnzahl++;
 				}
 			} catch (IOException e) {
 				try {
@@ -135,7 +127,7 @@ public class POP3Proxy {
 		}
 
 		private void handleCapa() {
-			write("-ERR CAPA ");
+			write("-ERR CAPA");
 		}
 
 		private synchronized boolean handleUser(String line) {
@@ -195,11 +187,11 @@ public class POP3Proxy {
 		 */
 		private synchronized void handleStat() throws MessagingException {
 			int size = 0;
-			if (messages.size() > 0) {
-				for (int i = 0; i < messages.size(); i++) {
-					size = size + messages.get(i).getSize();
+			if (mailbox.messages.size() > 0) {
+				for (int i = 0; i < mailbox.messages.size(); i++) {
+					size = size + mailbox.messages.get(i).getSize();
 				}
-				write("+OK " + messages.size() + " " + size);
+				write("+OK " + mailbox.messages.size() + " " + size);
 			} else {
 				write("-ERR maildrop empty");
 			}
@@ -213,18 +205,18 @@ public class POP3Proxy {
 		private synchronized void handleList(String line) throws IOException, MessagingException {
 			Pattern pattern = Pattern.compile(".* ([0-9]+)");
 			Matcher m = pattern.matcher(line);
-			if (messages.size() > 0) {
+			if (mailbox.messages.size() > 0) {
 				if (m.matches()) {
 					int msgnr = Integer.parseInt(m.group(1));
-					if (msgnr < messages.size()) {
-						write("+OK" + msgnr + " " + messages.get(msgnr).getSize());
+					if (msgnr < mailbox.messages.size()) {
+						write("+OK" + msgnr + " " + mailbox.messages.get(msgnr).getSize());
 					} else {
 						write("-ERR message not found");
 					}
 				} else {
-					write("+OK " + messages.size() + " messages");
-					for (int i = 0; i < messages.size(); i++) {
-						write((i+1) + " " + messages.get(i).getSize());
+					write("+OK " + mailbox.messages.size() + " messages");
+					for (int i = 0; i < mailbox.messages.size(); i++) {
+						write((i + 1) + " " + mailbox.messages.get(i).getSize());
 					}
 					write(".");
 				}
@@ -238,11 +230,11 @@ public class POP3Proxy {
 		 * RETR msg ->msg is num of message( param required)
 		 */
 		private synchronized void handleRetr(String line) throws IOException, MessagingException {
-			if (messages.size() > 0) {
+			if (mailbox.messages.size() > 0) {
 				int msgnr = Integer.parseInt(line.substring(5));
 				msgnr = msgnr - 1;
-				if (msgnr < messages.size()) {
-					Message m = messages.get(msgnr);
+				if (msgnr < mailbox.messages.size()) {
+					Message m = mailbox.messages.get(msgnr);
 
 					write("+OK " + m.getSize() + " Octats");
 					write("" + m.getFrom()[0]);
@@ -261,7 +253,7 @@ public class POP3Proxy {
 		 */
 		private synchronized void handleDelete(String line) throws IOException, MessagingException {
 			boolean contains = false;
-			for (Message message : messages) {
+			for (Message message : mailbox.messages) {
 				if (message.getMessageNumber() == Integer.parseInt(line.substring(5))) {
 					contains = true;
 					message.setFlag(Flag.DELETED, true);
@@ -284,7 +276,7 @@ public class POP3Proxy {
 		 * Unmark the message that are marked as deleted no param
 		 */
 		private synchronized void handleReset(String line) throws MessagingException, IOException {
-			for (Message message : messages) {
+			for (Message message : mailbox.messages) {
 				message.setFlag(Flag.DELETED, false);
 			}
 			write("+ok");
@@ -301,18 +293,18 @@ public class POP3Proxy {
 		private synchronized void handleUIDL(String line) throws IOException, MessagingException {
 			Pattern pattern = Pattern.compile(".* ([0-9]+)");
 			Matcher m = pattern.matcher(line);
-			if (messages.size() > 0) {
+			if (mailbox.messages.size() > 0) {
 				if (m.matches()) {
 					int msgnr = Integer.parseInt(m.group(1));
 					if (msgnr < messages.size()) {
 						write("+OK" + msgnr + " " + messages.get(msgnr).getReceivedDate());
 					} else {
-						write("-ERR no such message, only " + " " + messages.size() +  "messages in maildrop");
+						write("-ERR no such message, only " + " " + mailbox.messages.size() + "messages in maildrop");
 					}
 				} else {
 					write("+OK List mail");
-					for (int i = 0; i < messages.size(); i++) {
-						write((i+1) + " " + messages.get(i).getMessageNumber());
+					for (int i = 0; i < mailbox.messages.size(); i++) {
+						write((i + 1) + " " + mailbox.messages.get(i).getMessageNumber());
 					}
 					write(".");
 				}
@@ -343,16 +335,14 @@ public class POP3Proxy {
 					sb.append((char) i);
 					System.out.println(sb.toString());
 				}
-
 			} catch (IOException e) {
-
 			}
 			System.out.println("end of read");
 			return sb.toString();
 		}
 
 		private void write(String line) {
-			System.err.println(line);
+			// System.err.println(line);
 			line = line + "\r\n";
 			try {
 				out.write(line);
@@ -360,81 +350,5 @@ public class POP3Proxy {
 			} catch (IOException e) {
 			}
 		}
-
-	}
-
-	private ArrayList<Message> receivingEmails(UserAccount user) {
-		// create properties field
-		Properties properties = new Properties();
-
-		properties.put("mail.pop3.host", user.get_host());
-		properties.put("mail.pop3.port", user.get_port());
-		properties.put("mail.pop3.starttls.enable", "true");
-		Session emailSession = Session.getDefaultInstance(properties);
-
-		// create the POP3 store object and connect with the pop server
-		Store store;
-		Message[] messages = null;
-		ArrayList<Message> messageList = new ArrayList<Message>();
-		try {
-			store = emailSession.getStore("pop3s");
-
-			store.connect(user.get_host(), user.get_port(), user.get_name(), user.get_passwort());
-
-			// create the folder object and open it
-			Folder emailFolder = store.getFolder("INBOX");
-			emailFolder.open(Folder.READ_ONLY);
-
-			// retrieve the messages from the folder in an array and print
-			// it
-			messages = emailFolder.getMessages();
-			System.out.println("messages.length---" + messages.length);
-
-			for (int i = 0; i < messages.length; i++) {
-				Message message = messages[i];
-				System.out.println(message.getSize() + "in octats");
-				System.out.println(message.toString());
-				System.out.println("Message " + (i + 1));
-				System.out.println("Subject: " + message.getSubject());
-				System.out.println("From: " + message.getFrom()[0]);
-				try {
-					System.out.println("Text: " + message.getContent().toString());
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-
-			emailFolder.close(false);
-			store.close();
-
-		} catch (NoSuchProviderException e) {
-			e.printStackTrace();
-		} catch (MessagingException e) {
-			e.printStackTrace();
-		}
-
-		Collections.addAll(messageList, messages);
-		return messageList;
-	}
-
-	private void checkTime() {
-		Timer timer = new Timer();
-		timer.schedule(new TimerTask() {
-
-			@Override
-			public void run() {
-
-				for (UserAccount user : userAccounts) {
-					messages.addAll(receivingEmails(user));
-					if (userMessages.containsKey(user)) {
-						userMessages.get(user).addAll(receivingEmails(user));
-						System.out.println(userMessages.get(user).size());
-					} else {
-						userMessages.put(user, receivingEmails(user));
-					}
-				}
-				System.out.println("Wait for 30 seconds");
-			}
-		}, 0, 30 * 1000);
 	}
 }
