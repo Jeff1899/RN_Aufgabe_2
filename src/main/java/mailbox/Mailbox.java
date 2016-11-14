@@ -9,13 +9,14 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Timer;
 import java.util.TimerTask;
-
 import javax.mail.Folder;
 import javax.mail.Message;
 import javax.mail.MessagingException;
 import javax.mail.NoSuchProviderException;
 import javax.mail.Session;
 import javax.mail.Store;
+
+import com.sun.mail.pop3.POP3Folder;
 
 import proxy.UserAccount;
 
@@ -24,8 +25,9 @@ public class Mailbox {
 	//private static final String USER_ACCOUNTS = "../RNP_Aufgabe2/src/main/resources/UserAccounts.txt";
 	public ArrayList<UserAccount> userAccounts;
 	public ArrayList<Message> messages = new ArrayList<>();
+	public Map<Message, String> message_ID = new HashMap<>();
 	public Map<UserAccount, ArrayList<Message>> userMessages = new HashMap<UserAccount, ArrayList<Message>>();
-
+	public POP3Folder pf;
 	public Mailbox() {
 		userAccounts = UserAccount.createUserAccounts(new File(USER_ACCOUNTS));
 
@@ -51,15 +53,17 @@ public class Mailbox {
 
 			// create the folder object and open it
 			Folder emailFolder = store.getFolder("INBOX");
+			 pf = (POP3Folder) emailFolder;
 			emailFolder.open(Folder.READ_ONLY);
-
 			// retrieve the messages from the folder in an array and print
 			// it
 			messages = emailFolder.getMessages();
 			System.out.println("messages.length---" + messages.length);
 
 			for (int i = 0; i < messages.length; i++) {
-				Message message = messages[i];
+				Message message =  messages[i];
+				message_ID.put(message, pf.getUID(message).substring(7));
+				System.out.println(pf.getUID(message) + "messageuid");;
 				System.out.println(message.getSize() + "in octats");
 				System.out.println(message.toString());
 				System.out.println("Message " + (i + 1));
@@ -83,6 +87,17 @@ public class Mailbox {
 
 		Collections.addAll(messageList, messages);
 		return messageList;
+	}
+	
+	public String getUId(Message message){
+		String s="";
+		try {
+			s = pf.getUID(message);
+		} catch (MessagingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return s;
 	}
 
 	public void checkTime() {

@@ -94,7 +94,6 @@ public class POP3Proxy {
 						authenticate();
 					} // Transaction State
 					else if (state == STATE.TRANS) {
-						System.out.println("TRANS");
 						transaction();
 					}
 				}
@@ -110,7 +109,7 @@ public class POP3Proxy {
 		private void authenticate() throws IOException {
 			// String line = read();
 			String line = reader.readLine();
-			System.out.println(line);
+			System.out.println("Authentification : " + line);
 			if (line.startsWith("CAPA") || line.startsWith("AUTH")) {
 				handleCapa();
 			} else if (line.startsWith("USER ")) {
@@ -214,7 +213,11 @@ public class POP3Proxy {
 						write("-ERR message not found");
 					}
 				} else {
-					write("+OK " + mailbox.messages.size() + " messages");
+					int size = 0;
+					for(Message message : mailbox.messages){
+						size = size + message.getSize();
+					}
+					write("+OK " + mailbox.messages.size() + " messages" + "( " + size +"octats)");
 					for (int i = 0; i < mailbox.messages.size(); i++) {
 						write((i + 1) + " " + mailbox.messages.get(i).getSize());
 					}
@@ -304,7 +307,8 @@ public class POP3Proxy {
 				} else {
 					write("+OK List mail");
 					for (int i = 0; i < mailbox.messages.size(); i++) {
-						write((i + 1) + " " + mailbox.messages.get(i).getMessageNumber());
+						write((i + 1) + " "  + mailbox.message_ID.get(mailbox.messages.get(i)));
+						System.out.println(mailbox.message_ID.get(mailbox.messages.get(i)));
 					}
 					write(".");
 				}

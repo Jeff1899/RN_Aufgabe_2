@@ -38,7 +38,7 @@ public class SendMail {
 				InternetAddress.parse("rnwise2016@gmail.com"));
 			message.setSubject("Testing Subject");
 			message.setText("Dear Mail Crawler,"
-				+ "\n\n No spam to my email, please!");
+				+ "\n\n No spam to my email, please2!");
 
 			Transport.send(message);
 
