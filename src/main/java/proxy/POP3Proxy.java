@@ -41,7 +41,7 @@ public class POP3Proxy {
 	private ArrayList<UserAccount> userAccounts;
 	private ArrayList<Message> messages = new ArrayList<>();
 	public static Map<UserAccount, ArrayList<Message>> userMessages = new HashMap<UserAccount, ArrayList<Message>>();
-
+	public int clientAnzahl = 0;
 	public POP3Proxy(String[] args) {
 		if (args.length != 3) {
 			System.out.println("ERROR");
@@ -63,8 +63,11 @@ public class POP3Proxy {
 		while (true) {
 			try {
 				System.out.println("POP3-Proxy");
+				if(clientAnzahl <= 3){
 				Socket socket = server.accept();
 				new POP3ServerThread(socket).start();
+				clientAnzahl++;
+				}
 			} catch (IOException e) {
 				try {
 					server.close();
