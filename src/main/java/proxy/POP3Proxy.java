@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
 import javax.mail.Flags.Flag;
 import javax.mail.Message;
 import javax.mail.MessagingException;
+import javax.mail.Multipart;
 
 import mailbox.Mailbox;
 
@@ -29,7 +30,7 @@ public class POP3Proxy {
 	private int port;
 	private String username;
 	private String password;
-	private ArrayList<Message> messages = new ArrayList<>();
+	private ArrayList<Message> messages = new ArrayList<Message>();
 	public static Map<UserAccount, ArrayList<Message>> userMessages = new HashMap<UserAccount, ArrayList<Message>>();
 	public int clientAnzahl = 0;
 	public boolean serving = true;
@@ -238,18 +239,42 @@ public class POP3Proxy {
 				msgnr = msgnr - 1;
 				if (msgnr < mailbox.messages.size()) {
 					Message m = mailbox.messages.get(msgnr);
+					write("+OK");
+					write("From: " + "" + m.getFrom()[0]);
+					write("Date: " + "" + m.getSentDate());
+					write("Message-ID: " + "" + 10000);
+					write("Subject: " + "" + m.getSubject());
+					write("To: " + "" + username);
+//					write("Content-Type: " + "" + m.getContentType());
 
-					write("+OK " + m.getSize() + " Octats");
-					write("" + m.getFrom()[0]);
-					write("rnwise2016@gmail.com");
-					write(m.getSubject());
-					write(m.getContent().toString()); // Hier kommt ganze Mail
+//					write("Content-Type: " + "" + m.getContentType());
+					write("");
+					write(writePart(m));
+//					write(m.getContent().toString()); // Hier kommt ganze Mail
 					write("."); // Am ende mit . enden
 				}
 			} else {
 				write("-ERR maildrop empty");
 			}
 		}
+		
+		   public String writePart(Message m) {
+			   String inhalt = null;
+		   try {
+				Multipart mp;
+				mp = (Multipart) m.getContent();
+				inhalt = (String)mp.getBodyPart(0).getContent();
+				 }
+			catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (MessagingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			  
+			return inhalt;    
+		   }
 
 		/*
 		 * // param msg nr required

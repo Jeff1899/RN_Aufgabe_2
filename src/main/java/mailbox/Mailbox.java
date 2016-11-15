@@ -12,7 +12,9 @@ import java.util.TimerTask;
 import javax.mail.Folder;
 import javax.mail.Message;
 import javax.mail.MessagingException;
+import javax.mail.Multipart;
 import javax.mail.NoSuchProviderException;
+import javax.mail.Part;
 import javax.mail.Session;
 import javax.mail.Store;
 
@@ -21,11 +23,11 @@ import com.sun.mail.pop3.POP3Folder;
 import proxy.UserAccount;
 
 public class Mailbox {
-	private static final String USER_ACCOUNTS = "C:\\Users\\Biraj\\workspace\\RN_Aufgabe_2\\src\\main\\resources\\UserAccounts.txt";
-	//private static final String USER_ACCOUNTS = "../RNP_Aufgabe2/src/main/resources/UserAccounts.txt";
+//	private static final String USER_ACCOUNTS = "C:\\Users\\Biraj\\workspace\\RN_Aufgabe_2\\src\\main\\resources\\UserAccounts.txt";
+	private static final String USER_ACCOUNTS = "../RNP_Aufgabe2/src/main/resources/UserAccounts.txt";
 	public ArrayList<UserAccount> userAccounts;
-	public ArrayList<Message> messages = new ArrayList<>();
-	public Map<Message, String> message_ID = new HashMap<>();
+	public ArrayList<Message> messages = new ArrayList<Message>();
+	public Map<Message, String> message_ID = new HashMap<Message, String>();
 	public Map<UserAccount, ArrayList<Message>> userMessages = new HashMap<UserAccount, ArrayList<Message>>();
 	public POP3Folder pf;
 	public Mailbox() {
@@ -62,6 +64,7 @@ public class Mailbox {
 
 			for (int i = 0; i < messages.length; i++) {
 				Message message =  messages[i];
+				
 				message_ID.put(message, pf.getUID(message).substring(7));
 				System.out.println(pf.getUID(message) + "messageuid");;
 				System.out.println(message.getSize() + "in octats");
@@ -70,10 +73,18 @@ public class Mailbox {
 				System.out.println("Subject: " + message.getSubject());
 				System.out.println("From: " + message.getFrom()[0]);
 				try {
-					System.out.println("Text: " + message.getContent().toString());
-				} catch (IOException e) {
+					System.out.println("TEXT: " + writePart(message));
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
+//				try {
+//					System.out.println("TEXT: " + message.getContent());
+//				} catch (IOException e1) {
+//					// TODO Auto-generated catch block
+//					e1.printStackTrace();
+//				}
+//				System.out.println("CONTENT-TYPE: " + message.getContentType());
 			}
 
 			emailFolder.close(false);
@@ -88,6 +99,13 @@ public class Mailbox {
 		Collections.addAll(messageList, messages);
 		return messageList;
 	}
+	
+	   public String writePart(Message m) throws Exception {
+		   String inhalt = null;
+		   Multipart mp = (Multipart) m.getContent();
+		   inhalt = (String)mp.getBodyPart(0).getContent();
+		   return inhalt;    
+	   }
 	
 	public String getUId(Message message){
 		String s="";
