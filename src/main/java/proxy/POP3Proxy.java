@@ -38,7 +38,7 @@ public class POP3Proxy {
 
 	public POP3Proxy(String[] args) {
 		if (args.length != 3) {
-			System.out.println("ERROR");
+			System.out.println("ERROR ..");
 		}
 
 		port = Integer.parseInt(args[0]);
@@ -113,7 +113,10 @@ public class POP3Proxy {
 			System.out.println("Authentification : " + line);
 			if (line.startsWith("CAPA") || line.startsWith("AUTH")) {
 				handleCapa();
+				System.out.println("AA");
 			} else if (line.startsWith("USER ")) {
+
+				System.out.println("BB");
 				boolean userCorrect = handleUser(line);
 				if (userCorrect) {
 					line = reader.readLine();

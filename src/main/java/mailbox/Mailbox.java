@@ -60,6 +60,7 @@ public class Mailbox {
 			// retrieve the messages from the folder in an array and print
 			// it
 			messages = emailFolder.getMessages();
+			System.out.println("Get Messages");
 			System.out.println("messages.length---" + messages.length);
 
 			for (int i = 0; i < messages.length; i++) {
@@ -96,6 +97,8 @@ public class Mailbox {
 			e.printStackTrace();
 		}
 
+		System.out.println(messageList);
+		System.out.println(messages);
 		Collections.addAll(messageList, messages);
 		return messageList;
 	}
