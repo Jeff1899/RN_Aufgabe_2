@@ -25,7 +25,7 @@ import mailbox.Mailbox;
  * @author Jeff
  *
  */
-public class POP3Proxy {
+public class POP3Proxy2 {
 
 	private int port;
 	private String username;
@@ -36,9 +36,39 @@ public class POP3Proxy {
 	public boolean serving = true;
 	public Mailbox mailbox;
 
-	public POP3Proxy(String[] args) {
-		Thread client = new Thread(new ProxyClient());
-		client.run();
+	public POP3Proxy2(String[] args) {
+		if (args.length != 3) {
+			System.out.println("ERROR ..");
+		}
+
+		port = Integer.parseInt(args[0]);
+		username = args[1];
+		password = args[2];
+		mailbox = new Mailbox();
+	    mailbox.checkTime();
+		ServerSocket server = null;
+		try {
+			server = new ServerSocket(port);
+		} catch (IOException e) {
+			System.err.println("Connection failed");
+		}
+
+		while (serving) {
+			try {
+				System.out.println("POP3-Proxy");
+				if (clientAnzahl <= 3) {
+					Socket socket = server.accept();
+					new POP3ServerThread(socket).start();
+					clientAnzahl++;
+				}
+			} catch (IOException e) {
+				try {
+					server.close();
+				} catch (IOException e1) {
+					System.err.println("Server Socket cannot be closed");
+				}
+			}
+		}
 	}
 
 	class POP3ServerThread extends Thread {

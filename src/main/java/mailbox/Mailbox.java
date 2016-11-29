@@ -30,6 +30,7 @@ public class Mailbox {
 	public Map<Message, String> message_ID = new HashMap<Message, String>();
 	public Map<UserAccount, ArrayList<Message>> userMessages = new HashMap<UserAccount, ArrayList<Message>>();
 	public POP3Folder pf;
+	
 	public Mailbox() {
 		userAccounts = UserAccount.createUserAccounts(new File(USER_ACCOUNTS));
 
@@ -52,7 +53,6 @@ public class Mailbox {
 			store = emailSession.getStore("pop3s");
 
 			store.connect(user.get_host(), user.get_port(), user.get_name(), user.get_passwort());
-
 			// create the folder object and open it
 			Folder emailFolder = store.getFolder("INBOX");
 			 pf = (POP3Folder) emailFolder;
@@ -60,7 +60,6 @@ public class Mailbox {
 			// retrieve the messages from the folder in an array and print
 			// it
 			messages = emailFolder.getMessages();
-			System.out.println("Get Messages");
 			System.out.println("messages.length---" + messages.length);
 
 			for (int i = 0; i < messages.length; i++) {
@@ -96,9 +95,6 @@ public class Mailbox {
 		} catch (MessagingException e) {
 			e.printStackTrace();
 		}
-
-		System.out.println(messageList);
-		System.out.println(messages);
 		Collections.addAll(messageList, messages);
 		return messageList;
 	}

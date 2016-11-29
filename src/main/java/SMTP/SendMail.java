@@ -14,14 +14,14 @@ public class SendMail {
 
 	public static void main(String[] args) {
 
-		final String username = "eseigbejeff@gmail.com";
-		final String password = "RNWISE2016";
+		final String username = "test";
+		final String password = "testPassword";
 
 		Properties props = new Properties();
 		props.put("mail.smtp.auth", "true");
 		props.put("mail.smtp.starttls.enable", "true");
-		props.put("mail.smtp.host", "smtp.gmail.com");
-		props.put("mail.smtp.port", "587");
+		props.put("mail.smtp.host", "localhost");
+		props.put("mail.smtp.port", "2500");
 
 		Session session = Session.getInstance(props,
 		  new javax.mail.Authenticator() {
@@ -33,9 +33,9 @@ public class SendMail {
 		try {
 
 			Message message = new MimeMessage(session);
-			message.setFrom(new InternetAddress("eseigbejeff@gmail.com"));
-			message.setRecipients(Message.RecipientType.TO,
-				InternetAddress.parse("rnwise2016@gmail.com"));
+//			message.setFrom(new InternetAddress("eseigbejeff@gmail.com"));
+//			message.setRecipients(Message.RecipientType.TO,
+//				InternetAddress.parse("rnwise2016@gmail.com"));
 			message.setSubject("Testing Subject");
 			message.setText("Dear Mail Crawler,"
 				+ "\n\n No spam to my email, please2!");
