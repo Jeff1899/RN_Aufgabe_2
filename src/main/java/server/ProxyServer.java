@@ -59,10 +59,7 @@ public class ProxyServer extends Thread {
 		System.out.println("Authentification : " + line);
 		if (line.startsWith("CAPA") || line.startsWith("AUTH")) {
 			handleCapa();
-			System.out.println("AA");
 		} else if (line.startsWith("USER ")) {
-
-			System.out.println("BB");
 			boolean userCorrect = handleUser(line);
 			if (userCorrect) {
 				line = reader.readLine();
@@ -101,6 +98,8 @@ public class ProxyServer extends Thread {
 	}
 
 	private synchronized void handleQuit() {
+		
+
 		write("-ERR mailbox closing");
 	}
 
@@ -224,11 +223,12 @@ public class ProxyServer extends Thread {
 		boolean contains = false;
 		for (ProxyMessage message : proxy.getMessagesList()) {
 //			TODO
-//			if (message.getMessageNumber() == Integer.parseInt(line.substring(5))) {
+			if (message.getMessageNumber() == Integer.parseInt(line.substring(5))) {
 				contains = true;
-//				message.setFlag(Flag.DELETED, true);
-				write("+Ok deleted");
-//			}
+				message.setDeleteFlag(true);
+				write("+Ok message marked for delete");
+				break;
+			}
 		}
 		if (contains == false) {
 			write("-ERR only " + proxy.getMessagesList().size() + "are avialable");
@@ -296,7 +296,14 @@ public class ProxyServer extends Thread {
 	 * in translation state Quit command will change the state to UPDATE
 	 * delete any marked message and quit
 	 */
-	private synchronized void handleQuitTrans() {
+	private synchronized void handleQuitTrans() throws IOException {
+		for(ProxyMessage message : proxy.getMessagesList()){
+			if(message.isDeleteFlag()){
+				System.out.println("Delete this MESSAGE");
+			}
+			
+		}
+		socket.close();
 		state = STATE.UPDATE;
 		serving = false;
 	}

@@ -76,7 +76,7 @@ public class ProxyClient implements Runnable {
 			
 			String[] values = write("LIST " + 1).split(" ");
 			message.add(values[2]);
-			proxy.getMessagesList().add(new ProxyMessage(message));
+			proxy.getMessagesList().add(new ProxyMessage(message,proxy.getMessagesList().size() + 1 ));
 //			messages.add(message);
 //			deleteMails(i);
 		}

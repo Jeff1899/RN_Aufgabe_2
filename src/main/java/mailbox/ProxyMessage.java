@@ -9,16 +9,20 @@ public class ProxyMessage {
 	private String to;
 	private String from;
 	private String subject;
-	private String mesId;
+	private String messageID;
+	private int messageNumber;
 	private String date;
 	private List<String> content = new ArrayList<>();
 	private int size;
 	
-	public ProxyMessage(ArrayList<String> list){
+	private boolean deleteFlag = false;
+	
+	public ProxyMessage(ArrayList<String> list, int messageNumber){
+		this.messageNumber = messageNumber;
 		this.to = list.get(0).substring(4);
 		this.from = list.get(1).substring(6);
-		this.subject = list.get(2).substring(10);
-		this.mesId = list.get(3).substring(12);
+		this.subject = list.get(2).substring(9);
+		this.messageID = list.get(3).substring(12);
 		this.date = list.get(4).substring(6);
 		this.size = Integer.parseInt(list.get(list.size() - 1));
 	
@@ -38,7 +42,7 @@ public class ProxyMessage {
 	}
 
 	public String getMesId() {
-		return mesId;
+		return messageID;
 	}
 
 	public String getDate() {
@@ -51,6 +55,22 @@ public class ProxyMessage {
 
 	public int getSize() {
 		return size;
+	}
+
+	public boolean isDeleteFlag() {
+		return deleteFlag;
+	}
+
+	public void setDeleteFlag(boolean deleteFlag) {
+		this.deleteFlag = deleteFlag;
+	}
+
+	public int getMessageNumber() {
+		return messageNumber;
+	}
+
+	public void setMessageNumber(int messageNumer) {
+		this.messageNumber = messageNumer;
 	}
 
 }
