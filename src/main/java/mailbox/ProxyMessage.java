@@ -16,6 +16,7 @@ public class ProxyMessage {
 	private int size;
 	
 	private boolean deleteFlag = false;
+	private boolean updateStateFlag = false;
 	
 	public ProxyMessage(ArrayList<String> list, int messageNumber){
 		this.messageNumber = messageNumber;
@@ -24,6 +25,9 @@ public class ProxyMessage {
 		this.subject = list.get(2).substring(9);
 		this.messageID = list.get(3).substring(12);
 		this.date = list.get(4).substring(6);
+		for(String l : list){
+			System.out.println(l);
+		}
 		this.size = Integer.parseInt(list.get(list.size() - 1));
 	
 		content = list.subList(10, list.size() -1);
@@ -71,6 +75,14 @@ public class ProxyMessage {
 
 	public void setMessageNumber(int messageNumer) {
 		this.messageNumber = messageNumer;
+	}
+
+	public boolean isUpdateStateFlag() {
+		return updateStateFlag;
+	}
+
+	public void setUpdateStateFlag(boolean updateStateFlag) {
+		this.updateStateFlag = updateStateFlag;
 	}
 
 }

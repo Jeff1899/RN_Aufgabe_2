@@ -75,10 +75,13 @@ public class ProxyClient implements Runnable {
 			}
 			
 			String[] values = write("LIST " + 1).split(" ");
+			System.out.println(values[0]);
+			System.out.println(values[1]);
+			System.out.println(values[2]);
 			message.add(values[2]);
 			proxy.getMessagesList().add(new ProxyMessage(message,proxy.getMessagesList().size() + 1 ));
 //			messages.add(message);
-//			deleteMails(i);
+			deleteMails(i);
 		}
 		quitConnection();
 		disconnectUser();
@@ -124,12 +127,33 @@ public class ProxyClient implements Runnable {
 		clientsocket.close();
 	}
 			
+	@Override
+	public void run() {
+		Timer timer = new Timer();
+		timer.schedule(new TimerTask() {
+			@Override
+			public void run() {
+				try {
+				for (UserAccount user : userAccounts) {
+					connectUser();
+					readFromServer();
+					authenticate(user);
+					getMailsFromServer(getNumberOfMails());
+					
+					
+				}
+				System.out.println("Wait for 30s seconds");
+				} catch (IOException e) {
+					System.out.println("Something went terribly wrong");
+				}
+			}
+		}, 0, 10 * 1000);
+		
+	}
+
 //	@Override
 //	public void run() {
-//		Timer timer = new Timer();
-//		timer.schedule(new TimerTask() {
-//			@Override
-//			public void run() {
+//
 //				try {
 //				for (UserAccount user : userAccounts) {
 //					connectUser();
@@ -143,27 +167,6 @@ public class ProxyClient implements Runnable {
 //				} catch (IOException e) {
 //					System.out.println("Something went terribly wrong");
 //				}
-//			}
-//		}, 0, 10 * 1000);
 //		
 //	}
-
-	@Override
-	public void run() {
-
-				try {
-				for (UserAccount user : userAccounts) {
-					connectUser();
-					readFromServer();
-					authenticate(user);
-					getMailsFromServer(getNumberOfMails());
-					
-					
-				}
-				System.out.println("Wait for 30 seconds");
-				} catch (IOException e) {
-					System.out.println("Something went terribly wrong");
-				}
-		
-	}
 }

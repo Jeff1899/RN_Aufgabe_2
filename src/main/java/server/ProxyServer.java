@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -141,7 +142,8 @@ public class ProxyServer extends Thread {
 			}
 			write("+OK " + proxy.getMessagesList().size() + " " + size);
 		} else {
-			write("-ERR maildrop empty");
+			// Dann ist sie eben leer, muss ja kein Fehler sein TODO
+			write("+OK maildrop empty");
 		}
 //		if (mailbox.messages.size() > 0) {
 //			for (int i = 0; i < mailbox.messages.size(); i++) {
@@ -226,6 +228,7 @@ public class ProxyServer extends Thread {
 			if (message.getMessageNumber() == Integer.parseInt(line.substring(5))) {
 				contains = true;
 				message.setDeleteFlag(true);
+				System.out.println("Set FLAG " + message.isDeleteFlag());
 				write("+Ok message marked for delete");
 				break;
 			}
@@ -297,12 +300,17 @@ public class ProxyServer extends Thread {
 	 * delete any marked message and quit
 	 */
 	private synchronized void handleQuitTrans() throws IOException {
+		ArrayList<ProxyMessage> toRemove = new ArrayList<ProxyMessage>();
 		for(ProxyMessage message : proxy.getMessagesList()){
-			if(message.isDeleteFlag()){
+			if(message.isDeleteFlag() && message.isUpdateStateFlag()){
+				toRemove.add(message);
 				System.out.println("Delete this MESSAGE");
+			}else{
+				message.setUpdateStateFlag(true);
+				System.out.println("Message to UPDATE STATE");
 			}
-			
 		}
+		proxy.getMessagesList().removeAll(toRemove);
 		socket.close();
 		state = STATE.UPDATE;
 		serving = false;
