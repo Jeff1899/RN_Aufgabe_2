@@ -24,29 +24,23 @@ import proxy.UserAccount;
 
 public class ProxyClient implements Runnable {
 
-	
 //	private static final String USER_ACCOUNTS = "C:\\Users\\Biraj\\workspace\\RN_Aufgabe_2\\src\\main\\resources\\UserAccounts.txt";
 	private static final String USER_ACCOUNTS = "../RNP_Aufgabe2/src/main/resources/UserAccounts.txt";
 	public ArrayList<UserAccount> userAccounts;
 	
 	private OutputStreamWriter out;
 	BufferedReader reader;
-	
 	private Socket clientsocket;
-	
 	private boolean bOK = true;
-	
 	private POP3Proxy proxy;
-	
-	
 	
 	public ProxyClient(POP3Proxy proxy){
 		this.proxy = proxy;
 		userAccounts = UserAccount.createUserAccounts(new File(USER_ACCOUNTS));
 	}
 	
-	private void connectUser() throws UnknownHostException, IOException{
-			clientsocket = new Socket("localhost", 11000);
+	private void connectUser(UserAccount user) throws UnknownHostException, IOException{
+			clientsocket = new Socket(user.get_host(), user.get_port());
 		
 			out = new OutputStreamWriter(clientsocket.getOutputStream(), StandardCharsets.UTF_8);
 			InputStreamReader in = new InputStreamReader(clientsocket.getInputStream(), StandardCharsets.UTF_8);
@@ -75,12 +69,7 @@ public class ProxyClient implements Runnable {
 			}
 			
 			String[] values = write("LIST " + 1).split(" ");
-			System.out.println(values[0]);
-			System.out.println(values[1]);
-			System.out.println(values[2]);
-			message.add(values[2]);
-			proxy.getMessagesList().add(new ProxyMessage(message,proxy.getMessagesList().size() + 1 ));
-//			messages.add(message);
+			proxy.getMessagesList().add(new ProxyMessage(message,proxy.getMessagesList().size() + 1,Integer.parseInt(values[2])));
 			deleteMails(i);
 		}
 		quitConnection();
@@ -118,7 +107,6 @@ public class ProxyClient implements Runnable {
 		if(line.startsWith("-ERR")){
 			bOK = false;
 		}
-//		System.out.println(line);
 			
 		return line;
 	}
@@ -135,7 +123,7 @@ public class ProxyClient implements Runnable {
 			public void run() {
 				try {
 				for (UserAccount user : userAccounts) {
-					connectUser();
+					connectUser(user);
 					readFromServer();
 					authenticate(user);
 					getMailsFromServer(getNumberOfMails());
@@ -144,19 +132,20 @@ public class ProxyClient implements Runnable {
 				}
 				System.out.println("Wait for 30s seconds");
 				} catch (IOException e) {
+					System.out.println(e);
 					System.out.println("Something went terribly wrong");
 				}
 			}
-		}, 0, 10 * 1000);
+		}, 0, 30 * 1000);
 		
 	}
-
+//
 //	@Override
 //	public void run() {
 //
 //				try {
 //				for (UserAccount user : userAccounts) {
-//					connectUser();
+//					connectUser(user);
 //					readFromServer();
 //					authenticate(user);
 //					getMailsFromServer(getNumberOfMails());

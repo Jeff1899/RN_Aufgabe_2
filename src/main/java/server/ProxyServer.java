@@ -128,7 +128,6 @@ public class ProxyServer extends Thread {
 		} else if (line.startsWith("QUIT")) {
 			handleQuitTrans();
 		}
-
 	}
 
 	/*
@@ -200,17 +199,20 @@ public class ProxyServer extends Thread {
 			if (msgnr < proxy.getMessagesList().size()) {
 				ProxyMessage m = proxy.getMessagesList().get(msgnr);
 				write("+OK");
-				write("From: " + "" + m.getFrom());
-				write("Date: " + "" + m.getDate());
-				write("Message-ID: " + "" + m.getMesId());
-				write("Subject: " + "" + m.getSubject());
-				write("To: " + "" + m.getFrom());
-				write("");
-				for(String str: m.getContent()){
+				for(String str: m.getList()){
+					System.out.println(str);
 					write(str);
 				}
-//				write(writePart(m));
-//				write(m.getContent().toString()); // Hier kommt ganze Mail
+				
+//				write("From: " + "" + m.getFrom());
+//				write("Date: " + "" + m.getDate());
+//				write("Message-ID: " + "" + m.getMesId());
+//				write("Subject: " + "" + m.getSubject());
+//				write("To: " + "" + m.getFrom());
+//				write("");
+//				for(String str: m.getContent()){
+//					write(str);
+//				}
 				write("."); // Am ende mit . enden
 			}
 		} else {
@@ -271,21 +273,15 @@ public class ProxyServer extends Thread {
 			if (m.matches()) {
 				int msgnr = Integer.parseInt(m.group(1));
 				if (msgnr < proxy.getMessagesList().size()) {
-					//TODO
 					write("+OK" + msgnr + " " + proxy.getMessagesList().get(msgnr).getMesId());
-//					write("+OK" + msgnr + " " + messages.get(msgnr).getReceivedDate());
 				} else {
 					write("-ERR no such message, only " + " " + proxy.getMessagesList().size() + "messages in maildrop");
 				}
 			} else {
 				write("+OK List mail");
 				for (int i = 0; i < proxy.getMessagesList().size(); i++) {
-//					TODO
 					write((i + 1) + " "  + proxy.getMessagesList().get(i).getMesId());
-//					write((i + 1) + " "  + mailbox.message_ID.get(mailbox.messages.get(i)));
-//					TODO
 					System.out.println(proxy.getMessagesList().get(i).getMesId());
-//					System.out.println(mailbox.message_ID.get(mailbox.messages.get(i)));
 				}
 				write(".");
 			}
@@ -312,7 +308,6 @@ public class ProxyServer extends Thread {
 		}
 		proxy.getMessagesList().removeAll(toRemove);
 		socket.close();
-		state = STATE.UPDATE;
 		serving = false;
 	}
 
